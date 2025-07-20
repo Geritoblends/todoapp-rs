@@ -1,37 +1,48 @@
-use thiserror::Error;
-use sqlx::{Row, PgPool, Error as DbError, FromRow};
 use chrono::NaiveDateTime;
+use sqlx::{PgPool, Error as DbError, FromRow, Type};
 
-#[derive(Debug, Error)]
-pub enum ErrorType {
-    #[error("Parse error: {0}")]
-    ParseError(String),
-
-    #[error("Sqlx error: {0}")]
-    SqlxError(DbError),
-}
-
-#[derive(sqlx::Type, Debug)]
-#[sqlx(type_name = "priority", rename_all = "PascalCase")]
+#[derive(Type, Debug, Clone, Copy)]
+#[sqlx(type_name = "priority")]
+#[sqlx(rename_all = "PascalCase")]
 pub enum Priority {
     Low,
     Regular,
     Urgent,
 }
 
-#[derive(FromRow)]
+#[derive(FromRow, Debug)]
 pub struct Task {
     title: String,
     priority: Priority,
     completed: bool,
-    id: u64,
+    id: i32,
     created_at: NaiveDateTime,
 }
 
 impl Task {
 
-    fn format(&self) -> String {
-        format!("[{?}]: {}", self.priority, self.title)
+    pub fn format(&self) -> String {
+        format!("[{:?}]: {}", self.priority, self.title)
+    }
+
+    pub fn get_title(&self) -> String {
+        format!("{}", self.title)
+    }
+
+    pub fn get_priority(&self) -> Priority {
+        self.priority
+    }   
+
+    pub fn get_creation_time(&self) -> NaiveDateTime {
+        self.created_at
+    }
+
+    pub fn get_status(&self) -> bool {
+        self.completed
+    }
+
+    pub fn get_id(&self) -> i32 {
+        self.id
     }
 
 }
@@ -43,19 +54,19 @@ pub struct TaskPgDatabase {
 impl TaskPgDatabase {
 
     pub async fn connect(url: &str) -> Result<Self, DbError> {
-        let mut pool = PgPool::connect(&url).await?;
+        let pool = PgPool::connect(&url).await?;
         Ok(Self{pool})
     }
 
-    pub async fn new_task(&self, title: String, priority: Priority) -> Result<Task, DbError> {
+    pub async fn new_task(&self, title: &str, priority: Priority) -> Result<Task, DbError> {
         let task = sqlx::query_as!(Task,
             r#"
             INSERT INTO tasks (title, priority)
             VALUES ($1, $2)
-            RETURNING *;
+            RETURNING id, title, priority as "priority: Priority", completed, created_at;
             "#,
             title,
-            priority)
+            priority as Priority)
             .fetch_one(&self.pool)
             .await?;
         Ok(task)
@@ -64,7 +75,7 @@ impl TaskPgDatabase {
     pub async fn pending_tasks(&self) -> Result<Vec<Task>, DbError> {
         let pending_tasks = sqlx::query_as!(Task,
             r#"
-            SELECT * FROM tasks
+            SELECT id, title, priority AS "priority: Priority", completed, created_at FROM tasks
             WHERE completed = $1;
             "#,
             false)
@@ -76,7 +87,7 @@ impl TaskPgDatabase {
     pub async fn done_tasks(&self) -> Result<Vec<Task>, DbError> {
         let done_tasks = sqlx::query_as!(Task,
             r#"
-            SELECT * FROM tasks
+            SELECT id, title, priority AS "priority: Priority", completed, created_at FROM tasks
             WHERE completed = $1;
             "#,
             true)
@@ -85,7 +96,7 @@ impl TaskPgDatabase {
         Ok(done_tasks)
     }
 
-    pub async fn mark_task_done(&self, task_id: u64) -> Result<(), DbError> {
+    pub async fn mark_task_done(&self, task_id: i32) -> Result<(), DbError> {
         sqlx::query!(r#"
         UPDATE tasks
         SET completed = $1
@@ -99,7 +110,7 @@ impl TaskPgDatabase {
         Ok(())
     }
 
-    pub async fn edit_task_title(&self, task_id: u64, title: &str) -> Result<(), DbError> {
+    pub async fn edit_task_title(&self, task_id: i32, title: &str) -> Result<(), DbError> {
         sqlx::query!(r#"
         UPDATE tasks
         SET title = $1
@@ -112,17 +123,27 @@ impl TaskPgDatabase {
         Ok(())
     }
 
-    pub async fn edit_task_priority(&self, task_id: Uuid, priority: Priority) -> Result<(), DbError> {
+    pub async fn edit_task_priority(&self, task_id: i32, priority: Priority) -> Result<(), DbError> {
         sqlx::query!(r#"
         UPDATE tasks
         SET priority = $1
         WHERE id = $2
         "#,
-        priority,
+        priority as Priority,
         task_id)
         .execute(&self.pool)
         .await?;
         Ok(())
+    }
+
+    pub async fn query_task_by_id(&self, task_id: i32) -> Result<Task, DbError> {
+        let task = sqlx::query_as!(Task, r#"
+        SELECT id, created_at, title, completed, priority AS "priority: Priority" FROM tasks
+        WHERE id = $1;"#,
+        task_id)
+            .fetch_one(&self.pool)
+            .await?;
+        Ok(task)
     }
 
 }
