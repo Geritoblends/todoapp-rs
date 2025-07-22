@@ -1,7 +1,8 @@
 use chrono::NaiveDateTime;
 use sqlx::{PgPool, Error as DbError, FromRow, Type};
+use serde::{Serialize, Deserialize};
 
-#[derive(Type, Debug, Clone, Copy)]
+#[derive(Type, Debug, Clone, Copy, Serialize, Deserialize)]
 #[sqlx(type_name = "priority")]
 #[sqlx(rename_all = "PascalCase")]
 pub enum Priority {
@@ -20,7 +21,7 @@ pub enum Priority {
 //     }
 // }
 
-#[derive(FromRow, Debug)]
+#[derive(FromRow, Debug, Serialize, Deserialize)]
 pub struct Task {
     title: String,
     priority: Priority,
