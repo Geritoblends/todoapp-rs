@@ -2,7 +2,6 @@ use todo_app::{Priority, Task};
 use serde::{Serialize, Deserialize};
 
 #[derive(Deserialize)]
-#[repr(u8)]
 pub enum Command {
     NewTask{title: String, priority: Priority},
     PendingTasks,
@@ -19,7 +18,6 @@ pub struct ClientRequest {
 }
 
 #[derive(Serialize)]
-#[repr(u8)]
 pub enum CommandResponseValue {
     NewTask(Task),
     PendingTasks(Vec<Task>),
@@ -31,7 +29,6 @@ pub enum CommandResponseValue {
 }
 
 #[derive(Serialize)]
-#[repr(u8)]
 pub enum CommandResponse {
     Success(CommandResponseValue),
     Error(String),
@@ -41,4 +38,3 @@ pub enum CommandResponse {
 pub struct ServerResponse {
     payload: Vec<CommandResponse>
 }
-
