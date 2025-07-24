@@ -3,7 +3,7 @@ use todo_app::{Priority, Task, TaskPgDatabase};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{Mutex, mpsc};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use bincode::{config};
+use bincode::{serialize, deserialize};
 use std::io::BufReader;
 use std::sync::Arc;
 use crate::net::*;
@@ -12,17 +12,16 @@ pub mod net;
 
 #[derive(ThisError, Debug)]
 enum Error {
+
     #[error("I/O error: {0}")]
     IOError(#[from] std::io::Error),
 
     #[error("DB error: {0}")]
     DbError(#[from] sqlx::Error),
 
-    #[error("Encode error: {0}")]
-    EncodeError(#[from] bincode::error::EncodeError),
+    #[error("Serialization error: {0}")]
+    SerializationError(#[from] bincode::Error),
 
-    #[error("Decode error: {0}")]
-    DecodeError(#[from] bincode::error::DecodeError),
 }
 
 async fn handle_connection(
@@ -46,8 +45,8 @@ async fn handle_connection(
         }
 
         // Deserialize request
-        let (rq, _): (ClientRequest, usize) = bincode::decode_from_slice(&buf, config::standard())?;
-        let commands = rq.get_commands();
+        let rq: ClientRequest = bincode::deserialize(&buf[..])?;
+        let commands = rq.get_commands().to_vec();
         let expected_responses_len = commands.len();
         
         // Create channel with enough capacity
@@ -61,7 +60,7 @@ async fn handle_connection(
             tokio::spawn(async move {
                 let response = match command {
                     Command::NewTask { title, priority } => {
-                        match db.new_task(title, priority).await {
+                        match db.new_task(&title, priority).await {
                             Ok(task) => CommandResponse::Success(
                                 CommandResponseValue::NewTask(task)
                             ),
@@ -93,7 +92,7 @@ async fn handle_connection(
                         }
                     },
                     Command::EditTaskTitle { task_id, new_title } => {
-                        match db.edit_task_title(task_id, new_title).await {
+                        match db.edit_task_title(task_id, &new_title).await {
                             Ok(_) => CommandResponse::Success(
                                 CommandResponseValue::EditTaskTitle
                             ),
@@ -135,11 +134,9 @@ async fn handle_connection(
         }
 
         // Create ServerResponse and serialize
-        let server_response = ServerResponse {
-            payload: responses
-        };
+        let server_response = ServerResponse::new(responses);
         
-        let serialized: Vec<u8> = bincode::encode_to_vec(&server_response, config::standard()).unwrap();
+        let serialized: Vec<u8> = bincode::serialize(&server_response)?;
         let len = serialized.len() as u32;
         
         // Send length prefix followed by serialized data
