@@ -1,10 +1,12 @@
 use thiserror::{Error as ThisError};
 use todo_app::{Priority, Task, TaskPgDatabase};
 use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, mpsc};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use bincode::{config};
 use std::io::BufReader;
 use std::sync::Arc;
-use crate::net::Command;
+use crate::net::*;
 
 pub mod net;
 
@@ -15,70 +17,137 @@ enum Error {
 
     #[error("DB error: {0}")]
     DbError(#[from] sqlx::Error),
+
+    #[error("Encode error: {0}")]
+    EncodeError(#[from] bincode::error::EncodeError),
+
+    #[error("Decode error: {0}")]
+    DecodeError(#[from] bincode::error::DecodeError),
 }
 
-async fn handle_connection(stream: TcpStream, addr: std::net::SocketAddr, db: TaskPgDatabase) -> Result<(), Error> {
+async fn handle_connection(
+    mut stream: TcpStream,
+    addr: std::net::SocketAddr,
+    db: TaskPgDatabase
+) -> Result<(), Error> {
     loop {
+        // Read message length
         let mut length_buffer = [0u8; 4];
-        if let Err(_) = stream.read_exact(&mut length_buffer).await {
+        if stream.read_exact(&mut length_buffer).await.is_err() {
             println!("Error reading length to buffer, dropping connection.");
             break;
         }
+        
         let len = u32::from_be_bytes(length_buffer) as usize;
         let mut buf = vec![0u8; len];
-        if let Err(_) = stream.read_exact(&mut buf).await {
+        if stream.read_exact(&mut buf).await.is_err() {
             println!("Unreliable connection, failed to read exact bytes amount in data buffer. Dropping connection.");
             break;
         }
-        // Request
-        let rq: ClientRequest = bincode::deserialize(&buf)?;
-        let mut responses: Arc<Mutex<Vec<CommandResponse>>> = Arc::new(Mutex::new(Vec::with_capacity(capacity)));
-        for command in rq.commands {
+
+        // Deserialize request
+        let (rq, _): (ClientRequest, usize) = bincode::decode_from_slice(&buf, config::standard())?;
+        let commands = rq.get_commands();
+        let expected_responses_len = commands.len();
+        
+        // Create channel with enough capacity
+        let (tx, mut rx) = mpsc::channel(expected_responses_len);
+
+        // Spawn tasks for each command
+        for command in commands {
+            let db = db.clone();
+            let tx = tx.clone();
+
             tokio::spawn(async move {
-                match command {
-
-                    Command::NewTask(title, priority) => {
+                let response = match command {
+                    Command::NewTask { title, priority } => {
                         match db.new_task(title, priority).await {
-                            Ok(task) => {
-
-                            },
-                            Err(e) => {
-                                eprintln!("Error creating a new task: {}", e);
-                            },
+                            Ok(task) => CommandResponse::Success(
+                                CommandResponseValue::NewTask(task)
+                            ),
+                            Err(e) => CommandResponse::Error(e.to_string()),
                         }
                     },
-
                     Command::PendingTasks => {
-                        // return the tasks where completed = false
+                        match db.pending_tasks().await {
+                            Ok(tasks) => CommandResponse::Success(
+                                CommandResponseValue::PendingTasks(tasks)
+                            ),
+                            Err(e) => CommandResponse::Error(e.to_string()),
+                        }
                     },
-
                     Command::DoneTasks => {
-                        // return the tasks where completed == true
+                        match db.pending_tasks().await {
+                            Ok(tasks) => CommandResponse::Success(
+                                CommandResponseValue::DoneTasks(tasks)
+                            ),
+                            Err(e) => CommandResponse::Error(e.to_string()),
+                        }
                     },
-
                     Command::MarkTaskDone(id) => {
-                        // Mark the task and return a Server Response
+                        match db.mark_task_done(id).await {
+                            Ok(_) => CommandResponse::Success(
+                                CommandResponseValue::MarkTaskDone
+                            ),
+                            Err(e) => CommandResponse::Error(e.to_string()),
+                        }
                     },
-
-                    Command::EditTaskTitle(task_id, new_title) => {
-
+                    Command::EditTaskTitle { task_id, new_title } => {
+                        match db.edit_task_title(task_id, new_title).await {
+                            Ok(_) => CommandResponse::Success(
+                                CommandResponseValue::EditTaskTitle
+                            ),
+                            Err(e) => CommandResponse::Error(e.to_string()),
+                        }
                     },
-
-                    Command::EditTaskPriority(task_id, priority) => {
-
+                    Command::EditTaskPriority { task_id, priority } => {
+                        match db.edit_task_priority(task_id, priority).await {
+                            Ok(_) => CommandResponse::Success(
+                                CommandResponseValue::EditTaskPriority
+                            ),
+                            Err(e) => CommandResponse::Error(e.to_string()),
+                        }
                     },
-
                     Command::QueryTaskById(id) => {
-
+                        match db.query_task_by_id(id).await {
+                            Ok(task) => CommandResponse::Success(
+                                CommandResponseValue::QueryTaskById(task)
+                            ),
+                            Err(e) => CommandResponse::Error(e.to_string()),
+                        }
                     },
-
-                });
-            }
+                };
+                
+                // Send response through channel
+                if let Err(e) = tx.send(response).await {
+                    eprintln!("Failed to send response: {}", e);
+                }
+            });
         }
+
+        // Drop our sender so the receiver knows when to stop
+        drop(tx);
+
+        // Collect all responses
+        let mut responses = Vec::with_capacity(expected_responses_len);
+        while let Some(response) = rx.recv().await {
+            responses.push(response);
+        }
+
+        // Create ServerResponse and serialize
+        let server_response = ServerResponse {
+            payload: responses
+        };
         
-        // Unwrap Vec<CommandResponse>, serialize it and send to client ONLY after all tokio tasks
-        // are finished.
+        let serialized: Vec<u8> = bincode::encode_to_vec(&server_response, config::standard()).unwrap();
+        let len = serialized.len() as u32;
+        
+        // Send length prefix followed by serialized data
+        stream.write_all(&len.to_be_bytes()).await?;
+        stream.write_all(&serialized).await?;
     }
+    
+    Ok(())
 }
 
 #[tokio::main]

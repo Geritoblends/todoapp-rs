@@ -1,7 +1,8 @@
 use todo_app::{Priority, Task};
 use serde::{Serialize, Deserialize};
+use bincode::{Encode, Decode};
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Decode)]
 pub enum Command {
     NewTask{title: String, priority: Priority},
     PendingTasks,
@@ -12,12 +13,18 @@ pub enum Command {
     QueryTaskById(i32),
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Decode)]
 pub struct ClientRequest {
     commands: Vec<Command>,
 }
 
-#[derive(Serialize)]
+impl ClientRequest {
+    pub fn get_commands(&self) -> Vec<Command> {
+        self.commands.clone();
+    }
+}
+
+#[derive(Serialize, Encode)]
 pub enum CommandResponseValue {
     NewTask(Task),
     PendingTasks(Vec<Task>),
@@ -28,13 +35,13 @@ pub enum CommandResponseValue {
     QueryTaskById(Task),
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Encode)]
 pub enum CommandResponse {
     Success(CommandResponseValue),
     Error(String),
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Encode)]
 pub struct ServerResponse {
     payload: Vec<CommandResponse>
 }

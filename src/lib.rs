@@ -11,16 +11,6 @@ pub enum Priority {
     Urgent,
 }
 
-// impl Priority {
-//     pub fn to_string(&self) -> String {
-//         match self {
-//             Priority::Low => "Low",
-//             Priority::Regular => "Regular",
-//             Priority::Urgent => "Urgent",
-//         }
-//     }
-// }
-
 #[derive(FromRow, Debug, Serialize, Deserialize)]
 pub struct Task {
     title: String,
