@@ -1,52 +1,7 @@
 use chrono::NaiveDateTime;
 use sqlx::{PgPool, Error as DbError, FromRow, Type};
 use serde::{Serialize, Deserialize};
-
-#[derive(Type, Debug, Clone, Copy, Serialize, Deserialize)]
-#[sqlx(type_name = "priority")]
-#[sqlx(rename_all = "PascalCase")]
-pub enum Priority {
-    Low,
-    Regular,
-    Urgent,
-}
-
-#[derive(FromRow, Debug, Serialize, Deserialize)]
-pub struct Task {
-    title: String,
-    priority: Priority,
-    completed: bool,
-    id: i32,
-    created_at: NaiveDateTime,
-}
-
-impl Task {
-
-    pub fn format(&self) -> String {
-        format!("[{:?}]: {}", self.priority, self.title)
-    }
-
-    pub fn get_title(&self) -> String {
-        format!("{}", self.title)
-    }
-
-    pub fn get_priority(&self) -> Priority {
-        self.priority
-    }   
-
-    pub fn get_creation_time(&self) -> NaiveDateTime {
-        self.created_at
-    }
-
-    pub fn get_status(&self) -> bool {
-        self.completed
-    }
-
-    pub fn get_id(&self) -> i32 {
-        self.id
-    }
-
-}
+use net::{Task, Priority};
 
 #[derive(Clone)]
 pub struct TaskPgDatabase {

@@ -1,14 +1,11 @@
 use thiserror::{Error as ThisError};
-use todo_app::{Priority, Task, TaskPgDatabase};
 use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::{Mutex, mpsc};
+use tokio::sync::mpsc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use bincode::{serialize, deserialize};
 use std::io::BufReader;
-use std::sync::Arc;
-use crate::net::*;
-
-pub mod net;
+use net::{Task, Priority, ClientRequest, Command, CommandResponse, CommandResponseValue, ServerResponse};
+use todo_app_server::TaskPgDatabase;
 
 #[derive(ThisError, Debug)]
 enum Error {
@@ -151,7 +148,7 @@ async fn handle_connection(
 async fn main() -> Result<(), Error> {
 
     let db = TaskPgDatabase::connect("postgres://postgres:mysecretpassword@localhost:5432/postgres").await?;
-    let listener = TcpListener::bind("0.0.0.0:8080").await?;
+    let listener = TcpListener::bind("0.0.0.0:8992").await?;
 
     loop {
         tokio::select! {

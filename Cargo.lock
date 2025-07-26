@@ -744,6 +744,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "net"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "chrono",
+ "serde",
+ "sqlx",
+]
+
+[[package]]
 name = "num-bigint-dig"
 version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1425,11 +1435,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
-name = "todo-app"
+name = "todo_app_client"
 version = "0.1.0"
 dependencies = [
  "bincode",
  "chrono",
+ "net",
+ "serde",
+ "sqlx",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
+name = "todo_app_server"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "chrono",
+ "net",
  "serde",
  "sqlx",
  "thiserror",

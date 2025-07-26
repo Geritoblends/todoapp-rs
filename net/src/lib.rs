@@ -1,7 +1,33 @@
-use todo_app::{Priority, Task};
+use chrono::NaiveDateTime;
+use sqlx::{Type, FromRow};
 use serde::{Serialize, Deserialize};
 
-#[derive(Deserialize, Clone)]
+#[derive(Type, Debug, Clone, Copy, Serialize, Deserialize)]
+#[sqlx(type_name = "priority")]
+#[sqlx(rename_all = "PascalCase")]
+pub enum Priority {
+    Low,
+    Regular,
+    Urgent,
+}
+
+#[derive(FromRow, Debug, Serialize, Deserialize)]
+pub struct Task {
+    pub title: String,
+    pub priority: Priority,
+    pub completed: bool,
+    pub id: i32,
+    pub created_at: NaiveDateTime,
+}
+
+impl Task {
+
+    pub fn format(&self) -> String {
+        format!("[{:?}]: {}", self.priority, self.title)
+    }
+
+}
+#[derive(Serialize, Deserialize, Clone)]
 pub enum Command {
     NewTask{title: String, priority: Priority},
     PendingTasks,
@@ -23,7 +49,7 @@ impl ClientRequest {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub enum CommandResponseValue {
     NewTask(Task),
     PendingTasks(Vec<Task>),
@@ -34,13 +60,13 @@ pub enum CommandResponseValue {
     QueryTaskById(Task),
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub enum CommandResponse {
     Success(CommandResponseValue),
     Error(String),
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct ServerResponse {
     payload: Vec<CommandResponse>
 }
