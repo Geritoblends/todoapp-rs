@@ -131,7 +131,7 @@ async fn handle_connection(
         }
 
         // Create ServerResponse and serialize
-        let server_response = ServerResponse::new(responses);
+        let server_response = ServerResponse::new(&responses[..]);
         
         let serialized: Vec<u8> = bincode::serialize(&server_response)?;
         let len = serialized.len() as u32;

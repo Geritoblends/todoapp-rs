@@ -11,7 +11,7 @@ pub enum Priority {
     Urgent,
 }
 
-#[derive(FromRow, Debug, Serialize, Deserialize)]
+#[derive(FromRow, Debug, Serialize, Deserialize, Clone)]
 pub struct Task {
     pub title: String,
     pub priority: Priority,
@@ -38,7 +38,7 @@ pub enum Command {
     QueryTaskById(i32),
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 pub struct ClientRequest {
     commands: Vec<Command>,
 }
@@ -47,9 +47,15 @@ impl ClientRequest {
     pub fn get_commands(&self) -> &[Command] {
         &self.commands
     }
+
+    pub fn new(cmds: &[Command]) -> Self {
+        Self {
+            commands: cmds.to_vec(),
+        }
+    }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub enum CommandResponseValue {
     NewTask(Task),
     PendingTasks(Vec<Task>),
@@ -60,7 +66,7 @@ pub enum CommandResponseValue {
     QueryTaskById(Task),
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub enum CommandResponse {
     Success(CommandResponseValue),
     Error(String),
@@ -72,9 +78,14 @@ pub struct ServerResponse {
 }
 
 impl ServerResponse {
-    pub fn new(payload: Vec<CommandResponse>) -> Self  {
+    pub fn new(payload: &[CommandResponse]) -> Self  {
         Self {
-            payload,
+            payload: payload.to_vec(),
         }
     }
+
+    pub fn unwrap(&self) -> Vec<CommandResponse> {
+        self.payload.clone()
+    }
+
 }

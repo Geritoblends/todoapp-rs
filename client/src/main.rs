@@ -33,6 +33,60 @@ fn menu() -> Result<u8, Error> {
     Ok(result)
 }
 
+fn request_to_server(stream: &mut TcpStream, rq: ClientRequest) -> Result<ServerResponse, Error> {
+    let rq_bytes = bincode::serialize(&rq)?;
+    let rq_len = rq_bytes.len();
+    stream.write_all(&rq_len.to_be_bytes())?;
+    stream.write_all(&rq_bytes[..])?;
+    let mut rs_len_buf = [0u8; 4];
+    stream.read_exact(&mut rs_len_buf).expect("Connection lost. Shutting down.");
+    let rs_len = u32::from_be_bytes(rs_len_buf) as usize;
+    let mut rs_buf = vec![0u8; rs_len];
+    stream.read_exact(&mut rs_buf).expect("Connection lost. Shutting down.");
+    let rs: ServerResponse = bincode::deserialize(&mut rs_buf)?;
+    Ok(rs)
+}
+
+fn handle_response(rs: ServerResponse) -> Result<(), Error> {
+    let cmd_responses = rs.unwrap();
+
+    for cmd in cmd_responses {
+        match cmd {
+            CommandResponse::Success(cmd_val) => {
+                match cmd_val {
+                    CommandResponseValue::NewTask(_task) => {
+                        eprintln!("Succesfully created task.");
+                    },
+                    CommandResponseValue::PendingTasks(tasks) => {
+                        for task in tasks {
+                            println!("{}", task.format());
+                        }
+                    },
+                    CommandResponseValue::DoneTasks(tasks) => {
+                        for task in tasks {
+                            println!("{}", task.format());
+                        }
+                    },
+                    CommandResponseValue::MarkTaskDone => {
+                        println!("Successfully marked task as done");
+                    },
+                    CommandResponseValue::EditTaskTitle => {
+                        println!("Succesfully changed title")
+                    },
+                    CommandResponseValue::EditTaskPriority => {
+                        println!("Successfully changed priority");
+                    },
+                    CommandResponseValue::QueryTaskById(task) => {
+                        println!("{}", task.format());
+                    },
+                }
+            },
+            CommandResponse::Error(e) => println!("Server-side error: {}",e),
+        }
+    }
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     let mut stream = TcpStream::connect("127.0.0.1:8992").expect("Failed to connect to server. Panicking.");
@@ -44,39 +98,18 @@ async fn main() -> Result<(), Error> {
         match option {
             Ok(n) => match n {
                 1 => {
-                    let cmd_bytes: Vec<u8> = match bincode::serialize(&Command::PendingTasks) {
-                        Ok(vec) => vec,
+                    let rq = ClientRequest::new(&[Command::PendingTasks]);
+                    let response = match request_to_server(&mut stream, rq) {
+                        Ok(rq) => rq,
                         Err(e) => {
-                            println!("Error serializing: {}. Try again.", e);
-                            continue;
-                        },
-                    };
-                    let len = cmd_bytes.len();
-                    if let Err(e) = stream.write_all(&len.to_be_bytes()) {
-                        println!("Error writing length bytes: {} Try again.", e);
-                        continue;
-                    };
-                    if let Err(e) = stream.write_all(&cmd_bytes[..]) {
-                        println!("Error writing payload bytes. Try again.");
-                        continue;
-                    };
-
-                    // Response
-                    let mut len_buf = [0u8; 4];
-                    stream.read_exact(&mut len_buf).expect("Connection lost. Shutting down.");
-                    let len = u32::from_be_bytes(len_buf) as usize;
-                    let mut response_buf: Vec<u8> = Vec::with_capacity(len);
-                    stream.read_exact(&mut response_buf).expect("Connection lost. Shutting down.");
-                    
-                    let response: ServerResponse = match bincode::deserialize(&mut response_buf) {
-                        Ok(response) => response,
-                        Err(e) => {
-                            println!("Error deserializing: {}. Try again.", e);
+                            eprintln!("Error: {}. Try again", e);
                             continue;
                         }
                     };
-
-
+                    if let Err(e) = handle_response(response) {
+                        eprintln!("Error handling the response: {}, try again.", e);
+                        continue;
+                    };
 
                 },
                 2 => {
