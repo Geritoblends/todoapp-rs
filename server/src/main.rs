@@ -26,6 +26,7 @@ async fn handle_connection(
     addr: std::net::SocketAddr,
     db: TaskPgDatabase
 ) -> Result<(), Error> {
+    println!("Client connected: {:?}", addr);
     loop {
         // Read message length
         let mut length_buffer = [0u8; 4];
@@ -73,7 +74,7 @@ async fn handle_connection(
                         }
                     },
                     Command::DoneTasks => {
-                        match db.pending_tasks().await {
+                        match db.done_tasks().await {
                             Ok(tasks) => CommandResponse::Success(
                                 CommandResponseValue::DoneTasks(tasks)
                             ),
@@ -149,6 +150,7 @@ async fn main() -> Result<(), Error> {
 
     let db = TaskPgDatabase::connect("postgres://postgres:mysecretpassword@localhost:5432/postgres").await?;
     let listener = TcpListener::bind("0.0.0.0:8992").await?;
+    println!("Listening on 0.0.0.0:8992");
 
     loop {
         tokio::select! {
