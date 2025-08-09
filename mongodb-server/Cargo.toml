@@ -1,0 +1,12 @@
+[package]
+name = "mongodb_server"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+mongodb_net = { path = "../mongodb-net" }
+chrono = { version = "0.4", features = ["serde"] }
+serde = { version = "1.0", features = ["derive"] }
+thiserror = "2.0"
+tokio = { version = "1.46", features = ["full"] }
+mongodb = "3.2"

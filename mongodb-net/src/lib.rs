@@ -1,39 +1,37 @@
-use chrono::NaiveDateTime;
-use sqlx::{Type, FromRow};
 use serde::{Serialize, Deserialize};
+use chrono::NaiveDateTime;
+use mongodb::bson::{doc, Document};
+use mongodb::bson::oid::ObjectId;
+use mongodb::{bson};
+use thiserror::{Error as ThisError};
 
-#[derive(Type, Debug, Clone, Copy, Serialize, Deserialize)]
-#[sqlx(type_name = "priority")]
-#[sqlx(rename_all = "PascalCase")]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[repr(u8)]
 pub enum Priority {
     Low,
     Regular,
     Urgent,
 }
 
-#[derive(FromRow, Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Task {
-    pub title: String,
-    pub priority: Priority,
-    pub completed: bool,
-    pub id: i32,
-    pub created_at: NaiveDateTime,
+    id: ObjectId,
+    title: String,
+    priority: Priority,
+    completed: bool,
+    created_at: NaiveDateTime
 }
 
 impl Task {
 
-    pub fn new(id: i32, title: &str, priority: Priority, created_at: NaiveDateTime) -> Self {
+    pub fn new(id: ObjectId, title: &str, priority: Priority, created_at: NaiveDateTime) -> Self {
         Self {
+            id,
             title: title.to_string(),
             priority,
             completed: false,
-            id,
             created_at
         }
-    }
-
-    pub fn format(&self) -> String {
-        format!("[{:?}]: {}", self.priority, self.title)
     }
 
 }
