@@ -11,3 +11,4 @@ thiserror = "2.0"
 tokio = { version = "1.46", features = ["full"] }
 mongodb = "3.2"
 futures-util = "0.3"
+bincode = "1.3"

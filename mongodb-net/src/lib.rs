@@ -42,10 +42,10 @@ pub enum Command {
     NewTask{title: String, priority: Priority},
     PendingTasks,
     DoneTasks,
-    MarkTaskDone(i32),
-    EditTaskTitle{task_id: i32, new_title: String},
-    EditTaskPriority{task_id: i32, priority: Priority},
-    QueryTaskById(i32),
+    MarkTaskDone(ObjectId),
+    EditTaskTitle{task_id: ObjectId, new_title: String},
+    EditTaskPriority{task_id: ObjectId, priority: Priority},
+    QueryTaskById(ObjectId),
 }
 
 #[derive(Deserialize, Serialize)]
