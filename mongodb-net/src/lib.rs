@@ -15,6 +15,7 @@ pub enum Priority {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Task {
+    #[serde(rename = "_id")]
     id: ObjectId,
     title: String,
     priority: Priority,
