@@ -1,6 +1,6 @@
 use futures_util::stream::TryStreamExt;
 use chrono::{NaiveDateTime, Utc};
-use mongodb::{Client, bson, Collection};
+use mongodb::{options::ReturnDocument, Client, bson, Collection};
 use mongodb::bson::oid::ObjectId;
 use mongodb::bson::{doc, Document, to_bson};
 use mongodb_net::{Task, Priority };
@@ -59,36 +59,59 @@ impl TaskMongoDb {
         Ok(completed_tasks)
     }
 
-    pub async fn mark_task_done(&self, task_id: ObjectId) -> Result<(), Error> {
+    pub async fn mark_task_done(&self, task_id: ObjectId) -> Result<Task, Error> {
         let filter = doc!{ "_id": task_id };
         let update = doc!{
             "$set": doc!{ "completed": true }
         };
-        self.tasks_collection.update_one(filter, update).await?;
-        Ok(())
+        let updated_task = self.tasks_collection
+            .find_one_and_update(filter, update)
+            .return_document(ReturnDocument::After)
+            .await?;
+        let updated_task = match updated_task {
+            Some(task) => task,
+            None => return Err(Error::Custom("Task not found.".to_string())),
+        };
+
+        Ok(updated_task)
     }
 
-    pub async fn edit_task_title(&self, task_id: ObjectId, title: &str) -> Result<(), Error> {
+    pub async fn edit_task_title(&self, task_id: ObjectId, title: &str) -> Result<Task, Error> {
         let filter = doc!{"_id": task_id };
         let update = doc!{
             "$set": doc!{ "title": title }
         };
-        self.tasks_collection.update_one(filter, update).await?;
-        Ok(())
+        let updated_task = self.tasks_collection
+            .find_one_and_update(filter, update).
+            return_document(ReturnDocument::After)
+            .await?;
+        let updated_task = match updated_task {
+            Some(task) => task,
+            None => return Err(Error::Custom("Task not found.".to_string())),
+        };
+
+        Ok(updated_task)
     }
 
-    pub async fn edit_task_priority(&self, task_id: ObjectId, priority: Priority) -> Result<(), Error> {
+    pub async fn edit_task_priority(&self, task_id: ObjectId, priority: Priority) -> Result<Task, Error> {
         let priority = to_bson(&priority)?;
         let filter = doc!{ "_id": task_id };
         let update = doc!{
             "$set": doc!{ "priority": priority }
         };
-        self.tasks_collection.update_one(filter, update).await?;
-        Ok(())
+        let updated_task = self.tasks_collection
+            .find_one_and_update(filter, update)
+            .return_document(ReturnDocument::After)
+            .await?;
+        let updated_task = match updated_task {
+            Some(task) => task,
+            None => return Err(Error::Custom("Task not found.".to_string())),
+        };
+        Ok(updated_task)
     }
 
-    pub async fn query_task_by_id(&self, task_id: ObjectId) -> Result<Task, Error> {
-        let filter = doc!{ "_id": task_id};
+    pub async fn query_task_by_id(&self, id: ObjectId) -> Result<Task, Error> {
+        let filter = doc!{ "_id": id};
         if let Some(task) = self.tasks_collection.find_one(filter).await? {
             Ok(task)
         } else {

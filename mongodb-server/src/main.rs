@@ -83,24 +83,24 @@ async fn handle_connection(
                     },
                     Command::MarkTaskDone(id) => {
                         match db.mark_task_done(id).await {
-                            Ok(_) => CommandResponse::Success(
-                                CommandResponseValue::MarkTaskDone
+                            Ok(task) => CommandResponse::Success(
+                                CommandResponseValue::MarkTaskDone(task)
                             ),
                             Err(e) => CommandResponse::Error(e.to_string()),
                         }
                     },
                     Command::EditTaskTitle { task_id, new_title } => {
                         match db.edit_task_title(task_id, &new_title).await {
-                            Ok(_) => CommandResponse::Success(
-                                CommandResponseValue::EditTaskTitle
+                            Ok(task) => CommandResponse::Success(
+                                CommandResponseValue::EditTaskTitle(task)
                             ),
                             Err(e) => CommandResponse::Error(e.to_string()),
                         }
                     },
                     Command::EditTaskPriority { task_id, priority } => {
                         match db.edit_task_priority(task_id, priority).await {
-                            Ok(_) => CommandResponse::Success(
-                                CommandResponseValue::EditTaskPriority
+                            Ok(task) => CommandResponse::Success(
+                                CommandResponseValue::EditTaskPriority(task)
                             ),
                             Err(e) => CommandResponse::Error(e.to_string()),
                         }

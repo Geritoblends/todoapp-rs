@@ -1233,6 +1233,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "mongodb_todoapp_client"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "chrono",
+ "mongodb",
+ "mongodb_net",
+ "serde",
+ "sqlx",
+ "thiserror 2.0.12",
+ "tokio",
+]
+
+[[package]]
 name = "net"
 version = "0.1.0"
 dependencies = [

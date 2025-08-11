@@ -1,0 +1,14 @@
+[package]
+name = "mongodb_todoapp_client"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bincode = "1.3"
+mongodb_net = { path = "../mongodb-net" }  
+chrono = { version = "0.4", features = ["serde"] }
+serde = { version = "1.0", features = ["derive"] }
+sqlx = { version = "0.8", features = ["postgres", "runtime-tokio", "macros", "chrono"] }
+thiserror = "2.0"
+tokio = { version = "1.46", features = ["full"] }
+mongodb = "3.2"

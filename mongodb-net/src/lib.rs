@@ -13,6 +13,17 @@ pub enum Priority {
     Urgent,
 }
 
+impl Priority {
+
+    pub fn to_string(&self) -> String {
+        match self {
+            Priority::Low => "Low".to_string(),
+            Priority::Regular => "Regular".to_string(),
+            Priority::Urgent => "Urgent".to_string(),
+        }
+    } 
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Task {
     #[serde(rename = "_id")]
@@ -33,6 +44,18 @@ impl Task {
             completed: false,
             created_at
         }
+    }
+
+    pub fn get_id(&self) -> ObjectId {
+        self.id
+    }
+
+    pub fn get_title(&self) -> String {
+        self.title.to_string()
+    }
+
+    pub fn format(&self) -> String {
+        format!("[{}]: {}", self.priority.to_string(), self.title)
     }
 
 }
@@ -70,9 +93,9 @@ pub enum CommandResponseValue {
     NewTask(Task),
     PendingTasks(Vec<Task>),
     DoneTasks(Vec<Task>),
-    MarkTaskDone,
-    EditTaskTitle,
-    EditTaskPriority,
+    MarkTaskDone(Task),
+    EditTaskTitle(Task),
+    EditTaskPriority(Task),
     QueryTaskById(Task),
 }
 
