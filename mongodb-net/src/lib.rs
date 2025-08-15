@@ -1,6 +1,5 @@
 use serde::{Serialize, Deserialize};
-use chrono::NaiveDateTime;
-use mongodb::bson::{doc, Document};
+use mongodb::bson::{doc, Document, DateTime};
 use mongodb::bson::oid::ObjectId;
 use mongodb::{bson};
 use thiserror::{Error as ThisError};
@@ -22,23 +21,24 @@ impl Priority {
             Priority::Urgent => "Urgent".to_string(),
         }
     } 
+
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Task {
-    #[serde(rename = "_id")]
-    id: ObjectId,
+    #[serde(rename = "_id", with = "bson::serde_helpers::hex_string_as_object_id")]
+    id: String,
     title: String,
     priority: Priority,
     completed: bool,
-    created_at: NaiveDateTime
+    created_at: DateTime
 }
 
 impl Task {
 
-    pub fn new(id: ObjectId, title: &str, priority: Priority, created_at: NaiveDateTime) -> Self {
+    pub fn new(id: &str, title: &str, priority: Priority, created_at: DateTime) -> Self {
         Self {
-            id,
+            id: id.to_string(),
             title: title.to_string(),
             priority,
             completed: false,
@@ -46,8 +46,8 @@ impl Task {
         }
     }
 
-    pub fn get_id(&self) -> ObjectId {
-        self.id
+    pub fn get_id(&self) -> String {
+        self.id.clone()
     }
 
     pub fn get_title(&self) -> String {
@@ -65,10 +65,10 @@ pub enum Command {
     NewTask{title: String, priority: Priority},
     PendingTasks,
     DoneTasks,
-    MarkTaskDone(ObjectId),
-    EditTaskTitle{task_id: ObjectId, new_title: String},
-    EditTaskPriority{task_id: ObjectId, priority: Priority},
-    QueryTaskById(ObjectId),
+    MarkTaskDone(String),
+    EditTaskTitle{task_id: String, new_title: String},
+    EditTaskPriority{task_id: String, priority: Priority},
+    QueryTaskById(String),
 }
 
 #[derive(Deserialize, Serialize)]

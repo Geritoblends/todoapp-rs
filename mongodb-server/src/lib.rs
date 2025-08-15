@@ -1,9 +1,8 @@
 use futures_util::stream::TryStreamExt;
-use chrono::{NaiveDateTime, Utc};
 use mongodb::{options::ReturnDocument, Client, bson, Collection};
 use mongodb::bson::oid::ObjectId;
-use mongodb::bson::{doc, Document, to_bson};
-use mongodb_net::{Task, Priority };
+use mongodb::bson::{doc, Document, to_bson, DateTime};
+use mongodb_net::{Task, Priority};
 use serde::{Serialize, Deserialize};
 use thiserror::{Error as ThisError};
 
@@ -39,8 +38,8 @@ impl TaskMongoDb {
     }
 
     pub async fn new_task(&self, title: &str, priority: Priority) -> Result<Task, Error> {
-        let task_id = ObjectId::new();
-        let task = Task::new(task_id, title, priority, Utc::now().naive_utc());
+        let task_id = ObjectId::new().to_hex();
+        let task = Task::new(&task_id, title, priority, DateTime::now());
         self.tasks_collection.insert_one(task.clone()).await?;
         Ok(task)
     }
@@ -59,7 +58,7 @@ impl TaskMongoDb {
         Ok(completed_tasks)
     }
 
-    pub async fn mark_task_done(&self, task_id: ObjectId) -> Result<Task, Error> {
+    pub async fn mark_task_done(&self, task_id: &str) -> Result<Task, Error> {
         let filter = doc!{ "_id": task_id };
         let update = doc!{
             "$set": doc!{ "completed": true }
@@ -76,7 +75,7 @@ impl TaskMongoDb {
         Ok(updated_task)
     }
 
-    pub async fn edit_task_title(&self, task_id: ObjectId, title: &str) -> Result<Task, Error> {
+    pub async fn edit_task_title(&self, task_id: &str, title: &str) -> Result<Task, Error> {
         let filter = doc!{"_id": task_id };
         let update = doc!{
             "$set": doc!{ "title": title }
@@ -93,7 +92,7 @@ impl TaskMongoDb {
         Ok(updated_task)
     }
 
-    pub async fn edit_task_priority(&self, task_id: ObjectId, priority: Priority) -> Result<Task, Error> {
+    pub async fn edit_task_priority(&self, task_id: &str, priority: Priority) -> Result<Task, Error> {
         let priority = to_bson(&priority)?;
         let filter = doc!{ "_id": task_id };
         let update = doc!{
@@ -110,7 +109,7 @@ impl TaskMongoDb {
         Ok(updated_task)
     }
 
-    pub async fn query_task_by_id(&self, id: ObjectId) -> Result<Task, Error> {
+    pub async fn query_task_by_id(&self, id: &str) -> Result<Task, Error> {
         let filter = doc!{ "_id": id};
         if let Some(task) = self.tasks_collection.find_one(filter).await? {
             Ok(task)

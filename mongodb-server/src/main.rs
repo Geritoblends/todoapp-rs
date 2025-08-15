@@ -82,7 +82,7 @@ async fn handle_connection(
                         }
                     },
                     Command::MarkTaskDone(id) => {
-                        match db.mark_task_done(id).await {
+                        match db.mark_task_done(&id).await {
                             Ok(task) => CommandResponse::Success(
                                 CommandResponseValue::MarkTaskDone(task)
                             ),
@@ -90,7 +90,7 @@ async fn handle_connection(
                         }
                     },
                     Command::EditTaskTitle { task_id, new_title } => {
-                        match db.edit_task_title(task_id, &new_title).await {
+                        match db.edit_task_title(&task_id, &new_title).await {
                             Ok(task) => CommandResponse::Success(
                                 CommandResponseValue::EditTaskTitle(task)
                             ),
@@ -98,7 +98,7 @@ async fn handle_connection(
                         }
                     },
                     Command::EditTaskPriority { task_id, priority } => {
-                        match db.edit_task_priority(task_id, priority).await {
+                        match db.edit_task_priority(&task_id, priority).await {
                             Ok(task) => CommandResponse::Success(
                                 CommandResponseValue::EditTaskPriority(task)
                             ),
@@ -106,7 +106,7 @@ async fn handle_connection(
                         }
                     },
                     Command::QueryTaskById(id) => {
-                        match db.query_task_by_id(id).await {
+                        match db.query_task_by_id(&id).await {
                             Ok(task) => CommandResponse::Success(
                                 CommandResponseValue::QueryTaskById(task)
                             ),

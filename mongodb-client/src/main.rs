@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::net::TcpStream;
 use thiserror::Error as ThisError;
-use mongodb_net::*;
+use mongodb_net::{ServerResponse, Task, Priority, ClientRequest, Command, CommandResponse, CommandResponseValue};
 use std::io::{Write, Read, stdin};
 use mongodb::bson::{DateTime};
 use mongodb::bson::oid::ObjectId;
@@ -18,34 +18,34 @@ enum Error {
     #[error("Serialization error: {0}")]
     SerializationError(#[from] bincode::Error),
 
-    #[error("Error: {0}")]
+    #[error("{0}")]
     Custom(String),
 
 }
 
 #[derive(Clone)]
 struct TaskLocalStore {
-    tasks: BTreeMap<DateTime, Task>
+    tasks: BTreeMap<String, Task>
 }
 
 impl TaskLocalStore {
 
     fn new() -> Self {
-        let mut tasks: BTreeMap<DateTime, Task> = BTreeMap::new();
+        let mut tasks: BTreeMap<String, Task> = BTreeMap::new();
         Self {
             tasks,
         }
     }
 
     fn upsert(&mut self, task: Task) {
-        self.tasks.insert(task.get_id().timestamp(), task);
+        self.tasks.insert(task.get_id(), task);
     }
 
-    fn select_id(&self) -> Result<ObjectId, Error> {
+    fn select_id(&self) -> Result<String, Error> {
         if !self.tasks.is_empty() {
             println!("== fetched tasks list ==");
             let mut i: u8 = 0;
-            for (timestamp, task) in self.tasks.iter() {
+            for (id, task) in self.tasks.iter() {
                 println!("{}. {}", i + 1, task.get_title());
                 i += 1
             }
@@ -53,7 +53,7 @@ impl TaskLocalStore {
             let mut selected = String::new();
             stdin().read_line(&mut selected)?;
             let selected: u8 = selected.trim().parse::<u8>()? - 1;
-            if let Some((timestamp, task)) = self.tasks.iter().nth(selected as usize) {
+            if let Some((id, task)) = self.tasks.iter().nth(selected as usize) {
                 return Ok(task.get_id());
             }
         }
@@ -181,7 +181,13 @@ async fn main() -> Result<(), Error> {
                 },
                 3 => {
                     // Show the TaskLocalStore available tasks and obtain the selected id
-                    let id = store.select_id()?;
+                    let id = match store.select_id() {
+                        Ok(id) => id,
+                        Err(e) => {
+                            eprintln!("{}", e);
+                            continue;
+                        },
+                    };
                         
                     let rq = ClientRequest::new(&[Command::QueryTaskById(id)]);
                     let response = match request_to_server(&mut stream, rq) {
@@ -247,7 +253,13 @@ async fn main() -> Result<(), Error> {
                 },
                 5 => {
                     // mark as completed
-                    let id = store.select_id()?;
+                    let id = match store.select_id() {
+                        Ok(id) => id,
+                        Err(e) => {
+                            eprintln!("{}", e);
+                            continue;
+                        },
+                    };
                         
                     let rq = ClientRequest::new(&[Command::MarkTaskDone(id)]);
                     let response = match request_to_server(&mut stream, rq) {
@@ -266,7 +278,13 @@ async fn main() -> Result<(), Error> {
                 6 => {
                     // edit task title
 
-                    let id = store.select_id()?;
+                    let id = match store.select_id() {
+                        Ok(id) => id,
+                        Err(e) => {
+                            eprintln!("{}", e);
+                            continue;
+                        },
+                    };
 
                     let mut title = String::new();
                     println!("Enter the new title:");
@@ -292,7 +310,13 @@ async fn main() -> Result<(), Error> {
                 },
                 7 => {
                     // edit task priority
-                    let id = store.select_id()?;
+                    let id = match store.select_id() {
+                        Ok(id) => id,
+                        Err(e) => {
+                            eprintln!("{}", e);
+                            continue;
+                        },
+                    };
 
                     let mut priority = String::new();
                     println!("Introduce the task priority (1: Low, 2: Regular, 3: Urgent):");
