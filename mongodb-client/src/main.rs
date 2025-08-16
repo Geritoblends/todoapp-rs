@@ -3,8 +3,6 @@ use std::net::TcpStream;
 use thiserror::Error as ThisError;
 use mongodb_net::{ServerResponse, Task, Priority, ClientRequest, Command, CommandResponse, CommandResponseValue};
 use std::io::{Write, Read, stdin};
-use mongodb::bson::{DateTime};
-use mongodb::bson::oid::ObjectId;
 
 #[derive(ThisError, Debug)]
 enum Error {
@@ -31,7 +29,7 @@ struct TaskLocalStore {
 impl TaskLocalStore {
 
     fn new() -> Self {
-        let mut tasks: BTreeMap<String, Task> = BTreeMap::new();
+        let tasks: BTreeMap<String, Task> = BTreeMap::new();
         Self {
             tasks,
         }
@@ -42,22 +40,25 @@ impl TaskLocalStore {
     }
 
     fn select_id(&self) -> Result<String, Error> {
-        if !self.tasks.is_empty() {
-            println!("== fetched tasks list ==");
-            let mut i: u8 = 0;
-            for (id, task) in self.tasks.iter() {
-                println!("{}. {}", i + 1, task.get_title());
-                i += 1
-            }
-            println!("Select a task (1/{}):", i + 1);
-            let mut selected = String::new();
-            stdin().read_line(&mut selected)?;
-            let selected: u8 = selected.trim().parse::<u8>()? - 1;
-            if let Some((id, task)) = self.tasks.iter().nth(selected as usize) {
-                return Ok(task.get_id());
-            }
+        if self.tasks.is_empty() {
+            return Err(Error::Custom("The local store is empty, try fetching some values".to_string()));
         }
-        Err(Error::Custom("The local store is empty, try fetching some values".to_string()))
+
+        println!("== fetched tasks list ==");
+        let mut i: u8 = 0;
+        for (_id, task) in self.tasks.iter() {
+            println!("{}. {}", i + 1, task.get_title());
+            i += 1
+        }
+        println!("Select a task (1/{}):", i);
+        let mut selected = String::new();
+        stdin().read_line(&mut selected)?;
+        let selected: u8 = selected.trim().parse::<u8>()? - 1;
+        if let Some((_id, task)) = self.tasks.iter().nth(selected as usize) {
+            return Ok(task.get_id());
+        } else {
+            return Err(Error::Custom("Selected task isn't valid.".to_string()));
+        }
     }
 
 }
@@ -91,7 +92,7 @@ fn request_to_server(stream: &mut TcpStream, rq: ClientRequest) -> Result<Server
     Ok(rs)
 }
 
-fn handle_response(mut store: TaskLocalStore, rs: ServerResponse) -> Result<(), Error> {
+fn handle_response(store: &mut TaskLocalStore, rs: ServerResponse) -> Result<(), Error> {
     let cmd_responses = rs.unwrap();
 
     for cmd in cmd_responses {
@@ -158,7 +159,7 @@ async fn main() -> Result<(), Error> {
                             continue;
                         }
                     };
-                    if let Err(e) = handle_response(store.clone(), response) {
+                    if let Err(e) = handle_response(&mut store, response) {
                         eprintln!("Error handling the response: {}, try again.", e);
                         continue;
                     };
@@ -173,7 +174,7 @@ async fn main() -> Result<(), Error> {
                             continue;
                         }
                     };
-                    if let Err(e) = handle_response(store.clone(), response) {
+                    if let Err(e) = handle_response(&mut store, response) {
                         eprintln!("Error handling the response: {}, try again.", e);
                         continue;
                     };
@@ -197,7 +198,7 @@ async fn main() -> Result<(), Error> {
                             continue;
                         }
                     };
-                    if let Err(e) = handle_response(store.clone(), response) {
+                    if let Err(e) = handle_response(&mut store, response) {
                         eprintln!("Error handling the response: {}, try again.", e);
                         continue;
                     };
@@ -244,7 +245,7 @@ async fn main() -> Result<(), Error> {
                             continue;
                         }
                     };
-                    if let Err(e) = handle_response(store.clone(), response) {
+                    if let Err(e) = handle_response(&mut store, response) {
                         eprintln!("Error handling the response: {}, try again.", e);
                         continue;
                     };
@@ -269,7 +270,7 @@ async fn main() -> Result<(), Error> {
                             continue;
                         }
                     };
-                    if let Err(e) = handle_response(store.clone(), response) {
+                    if let Err(e) = handle_response(&mut store, response) {
                         eprintln!("Error handling the response: {}, try again.", e);
                         continue;
                     };
@@ -302,7 +303,7 @@ async fn main() -> Result<(), Error> {
                             continue;
                         }
                     };
-                    if let Err(e) = handle_response(store.clone(), response) {
+                    if let Err(e) = handle_response(&mut store, response) {
                         eprintln!("Error handling the response: {}, try again.", e);
                         continue;
                     };
@@ -350,7 +351,7 @@ async fn main() -> Result<(), Error> {
                             continue;
                         }
                     };
-                    if let Err(e) = handle_response(store.clone(), response) {
+                    if let Err(e) = handle_response(&mut store, response) {
                         eprintln!("Error handling the response: {}, try again.", e);
                         continue;
                     };

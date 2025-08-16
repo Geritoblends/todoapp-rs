@@ -1,6 +1,4 @@
-use chrono::NaiveDateTime;
-use sqlx::{PgPool, Error as DbError, FromRow, Type};
-use serde::{Serialize, Deserialize};
+use sqlx::{PgPool, Error as DbError};
 use net::{Task, Priority};
 
 #[derive(Clone)]

@@ -2,9 +2,7 @@ use thiserror::{Error as ThisError};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use bincode::{serialize, deserialize};
-use std::io::BufReader;
-use net::{Task, Priority, ClientRequest, Command, CommandResponse, CommandResponseValue, ServerResponse};
+use net::{ClientRequest, Command, CommandResponse, CommandResponseValue, ServerResponse};
 use todo_app_server::TaskPgDatabase;
 
 #[derive(ThisError, Debug)]

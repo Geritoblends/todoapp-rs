@@ -1,8 +1,21 @@
 use serde::{Serialize, Deserialize};
-use mongodb::bson::{doc, Document, DateTime};
+use mongodb::bson::doc;
+use chrono::NaiveDateTime;
 use mongodb::bson::oid::ObjectId;
 use mongodb::{bson};
-use thiserror::{Error as ThisError};
+use std::str::FromStr;
+use std::fmt;
+
+#[derive(Debug)]
+pub struct DateTimeOutOfRangeError;
+
+impl fmt::Display for DateTimeOutOfRangeError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Unix timestamp exceeds the i64 integer range")
+    }
+}
+
+impl std::error::Error for DateTimeOutOfRangeError {}
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[repr(u8)]
@@ -25,18 +38,50 @@ impl Priority {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct TaskDocument {
+    #[serde(rename = "_id")]
+    id: ObjectId,
+    title: String,
+    priority: Priority,
+    completed: bool,
+    created_at: i64
+}
+
+impl TaskDocument {
+    
+    pub fn new(id: &str, title: &str, priority: Priority, completed: bool, created_at: i64) -> Result<Self, bson::oid::Error> {
+        let id = ObjectId::from_str(id)?;
+        Ok(Self {
+            id,
+            title: title.to_string(),
+            priority,
+            completed,
+            created_at
+        })
+    }
+
+    pub fn as_task(&self) -> Result<Task, DateTimeOutOfRangeError> {
+        let timestamp = match NaiveDateTime::from_timestamp_millis(self.created_at) {
+            Some(timestamp) => timestamp,
+            None => return Err(DateTimeOutOfRangeError),
+        };
+        Ok(Task::new(&self.id.to_hex(), &self.title, self.priority, timestamp))
+    }
+
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Task {
-    #[serde(rename = "_id", with = "bson::serde_helpers::hex_string_as_object_id")]
     id: String,
     title: String,
     priority: Priority,
     completed: bool,
-    created_at: DateTime
+    created_at: NaiveDateTime
 }
 
 impl Task {
 
-    pub fn new(id: &str, title: &str, priority: Priority, created_at: DateTime) -> Self {
+    pub fn new(id: &str, title: &str, priority: Priority, created_at: NaiveDateTime) -> Self {
         Self {
             id: id.to_string(),
             title: title.to_string(),
@@ -58,7 +103,13 @@ impl Task {
         format!("[{}]: {}", self.priority.to_string(), self.title)
     }
 
+    pub fn as_document(&self) -> Result<TaskDocument, bson::oid::Error> {
+        let doc = TaskDocument::new(&self.id, &self.title, self.priority, self.completed, self.created_at.timestamp_millis())?;
+        Ok(doc)
+    }
+
 }
+
 
 #[derive(Serialize, Deserialize, Clone)]
 pub enum Command {

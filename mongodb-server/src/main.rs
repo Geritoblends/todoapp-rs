@@ -2,9 +2,7 @@ use thiserror::{Error as ThisError};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use bincode::{serialize, deserialize};
-use std::io::BufReader;
-use mongodb_net::{Task, Priority, ClientRequest, Command, CommandResponse, CommandResponseValue, ServerResponse};
+use mongodb_net::{ClientRequest, Command, CommandResponse, CommandResponseValue, ServerResponse};
 use mongodb_server::TaskMongoDb;
 
 #[derive(ThisError, Debug)]
